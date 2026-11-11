@@ -1,4 +1,4 @@
-name: Build Sugrob.exe
+name: Build Sugrob (Windows + macOS)
 
 on:
   push:
@@ -9,30 +9,57 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-
       - name: Publish single exe
         run: dotnet publish Sugrob.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
-
       - uses: actions/upload-artifact@v4
         with:
-          name: Sugrob
+          name: windows
           path: publish/Sugrob.exe
 
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Sugrob.app
+        shell: bash
+        run: |
+          set +e
+          ./mac/build.sh 2>&1 | tee build.log
+          st=${PIPESTATUS[0]}
+          if [ $st -ne 0 ]; then
+            grep -E "error:" build.log | head -40 | sed 's/^/::error::/'
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: mac/build/Sugrob-mac.zip
+
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Сугроб 1.0.${{ github.run_number }}
           make_latest: true
-          files: publish/Sugrob.exe
+          files: |
+            dist/windows/Sugrob.exe
+            dist/macos/Sugrob-mac.zip
           body: |
-            Скачайте **Sugrob.exe** и запустите — снег пойдёт сразу, программа свернётся в трей (значок снежинки у часов).
-            Ctrl+Alt+S — слепить снеговика. Правый клик по значку — меню и настройки.
+            **Windows:** скачайте `Sugrob.exe` и запустите — снег пойдёт сразу, программа свернётся в трей.
+            **Mac:** скачайте `Sugrob-mac.zip`, распакуйте, перенесите «Сугроб» в «Программы». Первый запуск: правый клик → «Открыть».
+
+            Ctrl+Alt+S (Windows) / ⌃⌥S (Mac) — слепить снеговика.
