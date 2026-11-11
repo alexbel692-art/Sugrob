@@ -1,0 +1,38 @@
+name: Build Sugrob.exe
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish single exe
+        run: dotnet publish Sugrob.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sugrob
+          path: publish/Sugrob.exe
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Сугроб 1.0.${{ github.run_number }}
+          make_latest: true
+          files: publish/Sugrob.exe
+          body: |
+            Скачайте **Sugrob.exe** и запустите — снег пойдёт сразу, программа свернётся в трей (значок снежинки у часов).
+            Ctrl+Alt+S — слепить снеговика. Правый клик по значку — меню и настройки.
